@@ -1,12 +1,12 @@
 from django.contrib import admin
 
 # Register your models here.
-from core.models import Profile, Tag, Product, OperatingSystem, Company
+from core.models import Tag, Product, OperatingSystem, Company
 
 
-@admin.register(Profile)
-class ProfileAdmin(admin.ModelAdmin):
-    model = Profile
+# @admin.register(Profile)
+# class ProfileAdmin(admin.ModelAdmin):
+#     model = Profile
 
 
 @admin.register(Company)

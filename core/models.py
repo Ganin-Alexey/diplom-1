@@ -9,21 +9,21 @@ from django.core.mail import send_mail
 from django.contrib.auth.models import PermissionsMixin
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.utils.translation import gettext_lazy as _
-# from .managmodels.CharFieldverbose_name=ers import UserManager
+import jwt
 from languages_plus.models import Language
 
 
-class Profile(models.Model):
-    website = models.URLField(verbose_name="Сайт URL", blank=True)
-    bio = models.CharField(verbose_name="ФИО", max_length=240, blank=True)
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        verbose_name="Пользователь",
-        on_delete=models.PROTECT,
-    )
-
-    def __str__(self):
-        return self.user.get_username()
+# class Profile(models.Model):
+#     website = models.URLField(verbose_name="Сайт URL", blank=True)
+#     bio = models.CharField(verbose_name="ФИО", max_length=240, blank=True)
+#     user = models.OneToOneField(
+#         settings.AUTH_USER_MODEL,
+#         verbose_name="Пользователь",
+#         on_delete=models.PROTECT,
+#     )
+#
+#     def __str__(self):
+#         return self.user.get_username()
 
 
 class Company(models.Model):
@@ -96,14 +96,20 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    email = models.EmailField(_('email'), unique=True)
-    first_name = models.CharField(_('name'), max_length=30, blank=True)
-    last_name = models.CharField(_('surname'), max_length=30, blank=True)
-    date_joined = models.DateTimeField(_('registered'), auto_now_add=True)
-    is_active = models.BooleanField(_('is_active'), default=True)
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
-    is_staff = models.BooleanField(_('is_staff'), default=False)
+    email = models.EmailField(_('Email'), unique=True)
+    first_name = models.CharField(_('Имя'), max_length=30, blank=True)
+    last_name = models.CharField(_('Фамилия'), max_length=30, blank=True)
+    bankcard_number = models.CharField(_('Номер банковской карты'), max_length=30, blank=True)
+    date_joined = models.DateTimeField(_('Дата регистрации'), auto_now_add=True)
+    is_active = models.BooleanField(_('Активный?'), default=True)
+    avatar = models.ImageField(_('Фото'), upload_to='avatars/', null=True, blank=True)
+    is_staff = models.BooleanField(_('Сотрудник?'), default=False)
     objects = UserManager()
+
+    # Временная метка создания объекта.
+    created_at = models.DateTimeField(_('Время создания'), auto_now_add=True, blank=True, null=True)
+    # Временная метка показывающая время последнего обновления объекта.
+    updated_at = models.DateTimeField(_('Время обновления'), auto_now=True, blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -111,6 +117,33 @@ class User(AbstractBaseUser, PermissionsMixin):
     class Meta:
         verbose_name = _('user')
         verbose_name_plural = _('users')
+
+    def __str__(self):
+        """ Строковое представление модели (отображается в консоли) """
+        return self.email
+
+    def _generate_jwt_token(self):
+        """
+        Генерирует веб-токен JSON, в котором хранится идентификатор этого
+        пользователя, срок действия токена составляет 1 день от создания
+        """
+        dt = datetime.now() + timedelta(days=1)
+
+        token = jwt.encode({
+            'id': self.pk,
+            'exp': int(dt.strftime('%s'))
+        }, settings.SECRET_KEY, algorithm='HS256')
+
+        return token.decode('utf-8')
+
+    @property
+    def token(self):
+        """
+        Позволяет получить токен пользователя путем вызова user.token, вместо
+        user._generate_jwt_token(). Декоратор @property выше делает это
+        возможным. token называется "динамическим свойством".
+        """
+        return self._generate_jwt_token()
 
     def get_full_name(self):
         '''

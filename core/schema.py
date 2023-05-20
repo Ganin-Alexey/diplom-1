@@ -4,11 +4,12 @@ from graphene_django import DjangoObjectType
 from core import models
 from django.db.models import F
 import graphene
+from graphql_jwt.decorators import login_required
 
 
 class UserType(DjangoObjectType):
     class Meta:
-        model = models.Profile
+        model = models.User
 
 
 class CompanyType(DjangoObjectType):
@@ -66,6 +67,11 @@ class Query(graphene.ObjectType):
     products_by_tag = graphene.List(ProductType, tag=graphene.String())
     tags_with_count_of_products = graphene.List(TagType)
     operating_systems_with_count_of_products = graphene.List(OperatingSystemType)
+    viewer = graphene.Field(UserType, token=graphene.String(required=True))
+
+    @login_required
+    def resolve_viewer(self, info, **kwargs):
+        return info.context.user
 
     def resolve_tags_with_count_of_products(self, info):
         return (
@@ -109,5 +115,17 @@ class Query(graphene.ObjectType):
                 .filter(tags__name__iexact=tag)
         )
 
+import graphql_jwt
 
-schema = graphene.Schema(query=Query)
+
+class Mutation(graphene.ObjectType):
+    token_auth = graphql_jwt.ObtainJSONWebToken.Field()
+    verify_token = graphql_jwt.Verify.Field()
+    refresh_token = graphql_jwt.Refresh.Field()
+    revoke_token = graphql_jwt.Revoke.Field()
+    delete_token_cookie = graphql_jwt.DeleteJSONWebTokenCookie.Field()
+    # Long running refresh tokens
+    delete_refresh_token_cookie = graphql_jwt.DeleteRefreshTokenCookie.Field()
+
+
+schema = graphene.Schema(query=Query, mutation=Mutation)
