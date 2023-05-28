@@ -2,9 +2,10 @@ from backend import settings
 from django.db.models import Count
 from graphene_django import DjangoObjectType
 from core import models
-from django.db.models import F
+from django.db.models import F, Q, QuerySet
 import graphene
 from graphql_jwt.decorators import login_required
+from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 
 
 class UserType(DjangoObjectType):
@@ -68,15 +69,39 @@ class Query(graphene.ObjectType):
     tags_with_count_of_products = graphene.List(TagType)
     operating_systems_with_count_of_products = graphene.List(OperatingSystemType)
     viewer = graphene.Field(UserType, token=graphene.String(required=True))
+    products_search = graphene.List(ProductType, query=graphene.String())
+    order_payment = graphene.String(email=graphene.String(), ids=graphene.List(graphene.ID))
 
     @login_required
     def resolve_viewer(self, info, **kwargs):
         return info.context.user
 
+    def resolve_order_payment(self, info, email, ids, **kwargs):
+        products_in_order = models.Product.objects.filter(id__in=ids)
+        subject = 'Globus-IT: Ваша покупка совершена успешно!'
+        message = 'Ваши ключи: \n'
+        for product in products_in_order:
+            key = product.keys.first()
+            message += f'{product.title} - {key.product_key}\n'
+            key.is_deleted = True
+            key.save()
+        models.User.email_user(subject=subject, to_email=email, message=message)
+        return 'Complete'
+
     def resolve_tags_with_count_of_products(self, info):
         return (
             models.Tag.objects.annotate(name_tag=F('name'), count_products=Count('products')).order_by('name_tag')
         )
+
+    def resolve_products_search(self, info, query=''):
+        products = models.Product.objects.prefetch_related("tags", "operating_systems", "languages").select_related("company")
+
+        query_filter = Q()
+        for word in query.split(' '):
+            query_filter |= Q(title__icontains=word)
+            query_filter |= Q(description__icontains=word)
+            query_filter |= Q(price__icontains=word)
+        return products.filter(query_filter)
 
     def resolve_operating_systems_with_count_of_products(self, info):
         return (
@@ -118,6 +143,25 @@ class Query(graphene.ObjectType):
 import graphql_jwt
 
 
+class UserMutation(graphene.Mutation):
+    class Arguments:
+        # The input arguments for this mutation
+        email = graphene.String(required=True)
+        first_name = graphene.String(required=True)
+        last_name = graphene.String(required=True)
+        password = graphene.String(required=True)
+
+    # The class attributes define the response of the mutation
+    user = graphene.Field(UserType)
+
+    @classmethod
+    def mutate(cls, root, info, email, first_name, last_name, password):
+        user = models.User.objects.create(email=email, first_name=first_name, last_name=last_name, password=password)
+        user.save()
+        # Notice we return an instance of this mutation
+        return UserMutation(user=user)
+
+
 class Mutation(graphene.ObjectType):
     token_auth = graphql_jwt.ObtainJSONWebToken.Field()
     verify_token = graphql_jwt.Verify.Field()
@@ -126,6 +170,7 @@ class Mutation(graphene.ObjectType):
     delete_token_cookie = graphql_jwt.DeleteJSONWebTokenCookie.Field()
     # Long running refresh tokens
     delete_refresh_token_cookie = graphql_jwt.DeleteRefreshTokenCookie.Field()
+    register_user = UserMutation.Field()
 
 
 schema = graphene.Schema(query=Query, mutation=Mutation)

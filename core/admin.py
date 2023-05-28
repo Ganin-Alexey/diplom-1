@@ -1,17 +1,46 @@
 from django.contrib import admin
-
+from django import forms
 # Register your models here.
-from core.models import Tag, Product, OperatingSystem, Company
+from core.models import Tag, Product, OperatingSystem, Company, User, ProductKey
+from languages_plus.models import Language, CultureCode
+from countries_plus.models import Country
+from django.contrib.admin.sites import site
+from django.contrib.admin.widgets import ForeignKeyRawIdWidget
+
+admin.site.unregister(Language)
+admin.site.unregister(CultureCode)
+admin.site.unregister(Country)
 
 
-# @admin.register(Profile)
-# class ProfileAdmin(admin.ModelAdmin):
-#     model = Profile
+class ProductKeyAdminForm(forms.ModelForm):
+    """Изменяем виджет для ForeignKey"""
+
+    class Meta:
+        model = ProductKey
+        widgets = {
+            'keys': ForeignKeyRawIdWidget(ProductKey._meta.get_field('product').remote_field, site),
+        }
+        fields = '__all__'
+
+
+@admin.register(ProductKey)
+class ProductKeyAdmin(admin.ModelAdmin):
+    model = ProductKey
+    form = ProductKeyAdminForm
+
+
+class ProductKeyInLine(admin.StackedInline):
+    model = ProductKey
 
 
 @admin.register(Company)
 class CompanyAdmin(admin.ModelAdmin):
     model = Company
+
+
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    model = User
 
 
 @admin.register(Tag)
@@ -25,11 +54,10 @@ class TagAdmin(admin.ModelAdmin):
 
 
 @admin.register(Product)
-class PostAdmin(admin.ModelAdmin):
+class ProductAdmin(admin.ModelAdmin):
     model = Product
-
+    inlines = [ProductKeyInLine, ]
     list_display = (
-        "id",
         "title",
         "slug",
         "price",
@@ -41,12 +69,12 @@ class PostAdmin(admin.ModelAdmin):
         "publish_date",
     )
     list_editable = (
-        "title",
         "slug",
         "price",
         "publish_date",
         "published",
     )
+    list_display_links = ("title",)
     search_fields = (
         "title",
         "price",
@@ -59,5 +87,6 @@ class PostAdmin(admin.ModelAdmin):
             "price",
         )
     }
+
     date_hierarchy = "publish_date"
     save_on_top = True

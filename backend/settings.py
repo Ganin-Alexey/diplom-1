@@ -96,6 +96,13 @@ DATABASES = {
     }
 }
 
+# Email
+EMAIL_HOST_PASSWORD = ''
+DEFAULT_FROM_EMAIL = ''
+EMAIL_HOST = 'smtp.mail.ru'
+EMAIL_POST = 587
+EMAIL_HOST_USER = ''
+EMAIL_USE_TLS = True
 
 # Password validation
 # https://docs.djangoproject.com/en/3.1/ref/settings/#auth-password-validators
@@ -119,7 +126,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ru-RU'
 
 TIME_ZONE = 'UTC'
 

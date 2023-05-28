@@ -1,29 +1,13 @@
 from __future__ import unicode_literals
 import uuid
-from django.db import models
 from backend import settings
-from django.contrib.auth.models import User
 from django.contrib.auth.base_user import BaseUserManager
 from django.db import models
 from django.core.mail import send_mail
 from django.contrib.auth.models import PermissionsMixin
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.utils.translation import gettext_lazy as _
-import jwt
 from languages_plus.models import Language
-
-
-# class Profile(models.Model):
-#     website = models.URLField(verbose_name="Сайт URL", blank=True)
-#     bio = models.CharField(verbose_name="ФИО", max_length=240, blank=True)
-#     user = models.OneToOneField(
-#         settings.AUTH_USER_MODEL,
-#         verbose_name="Пользователь",
-#         on_delete=models.PROTECT,
-#     )
-#
-#     def __str__(self):
-#         return self.user.get_username()
 
 
 class Company(models.Model):
@@ -32,12 +16,20 @@ class Company(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name = 'Компания'
+        verbose_name_plural = 'Компании'
+
 
 class Tag(models.Model):
     name = models.CharField(verbose_name="Название тега", max_length=50, unique=True)
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        verbose_name = 'Тег'
+        verbose_name_plural = 'Теги'
 
 
 class OperatingSystem(models.Model):
@@ -46,10 +38,16 @@ class OperatingSystem(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name = 'Операционная система'
+        verbose_name_plural = 'Операционные системы'
+
 
 class Product(models.Model):
     class Meta:
         ordering = ["-publish_date"]
+        verbose_name = 'Продукт'
+        verbose_name_plural = 'Продукты'
 
     title = models.CharField(verbose_name="Название ПО", max_length=255, unique=True)
     slug = models.SlugField(verbose_name="Слаг", max_length=255, unique=True)
@@ -65,6 +63,25 @@ class Product(models.Model):
     operating_systems = models.ManyToManyField(OperatingSystem, verbose_name="Операционные системы", related_name="products", blank=True)
     company = models.ForeignKey(Company, verbose_name="Создатель ПО", on_delete=models.PROTECT, blank=True, null=True)
     tags = models.ManyToManyField(Tag, verbose_name="Теги", related_name="products", blank=True, null=True)
+
+    def __str__(self):
+        """ Строковое представление модели (отображается в консоли) """
+        return f'{self.title}: {self.price}Р'
+
+
+class ProductKey(models.Model):
+    product = models.ForeignKey(Product, verbose_name="Продукт", on_delete=models.PROTECT, related_name="keys")
+    product_key = models.UUIDField(verbose_name="Ключ активации продукта", unique=True, default=uuid.uuid4, editable=False)
+    is_deleted = models.BooleanField(verbose_name="Использован?", default=False)
+
+    class Meta:
+        ordering = ["-product"]
+        verbose_name = 'Ключ активации продукта'
+        verbose_name_plural = 'Ключи активации продуктов'
+
+    def __str__(self):
+        """ Строковое представление модели (отображается в консоли) """
+        return f'{self.product}: {self.product_key}'
 
 
 class UserManager(BaseUserManager):
@@ -99,11 +116,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(_('Email'), unique=True)
     first_name = models.CharField(_('Имя'), max_length=30, blank=True)
     last_name = models.CharField(_('Фамилия'), max_length=30, blank=True)
-    bankcard_number = models.CharField(_('Номер банковской карты'), max_length=30, blank=True)
+    bankcard_number = models.CharField(_('Номер банковской карты'), max_length=30, blank=True, null=True)
     date_joined = models.DateTimeField(_('Дата регистрации'), auto_now_add=True)
     is_active = models.BooleanField(_('Активный?'), default=True)
     avatar = models.ImageField(_('Фото'), upload_to='avatars/', null=True, blank=True)
     is_staff = models.BooleanField(_('Сотрудник?'), default=False)
+
     objects = UserManager()
 
     # Временная метка создания объекта.
@@ -115,35 +133,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = []
 
     class Meta:
-        verbose_name = _('user')
-        verbose_name_plural = _('users')
+        verbose_name = _('Пользователь')
+        verbose_name_plural = _('Пользователи')
 
     def __str__(self):
         """ Строковое представление модели (отображается в консоли) """
         return self.email
-
-    def _generate_jwt_token(self):
-        """
-        Генерирует веб-токен JSON, в котором хранится идентификатор этого
-        пользователя, срок действия токена составляет 1 день от создания
-        """
-        dt = datetime.now() + timedelta(days=1)
-
-        token = jwt.encode({
-            'id': self.pk,
-            'exp': int(dt.strftime('%s'))
-        }, settings.SECRET_KEY, algorithm='HS256')
-
-        return token.decode('utf-8')
-
-    @property
-    def token(self):
-        """
-        Позволяет получить токен пользователя путем вызова user.token, вместо
-        user._generate_jwt_token(). Декоратор @property выше делает это
-        возможным. token называется "динамическим свойством".
-        """
-        return self._generate_jwt_token()
 
     def get_full_name(self):
         '''
@@ -158,8 +153,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         '''
         return self.first_name
 
-    def email_user(self, subject, message, from_email=None, **kwargs):
+    @staticmethod
+    def email_user(subject, message, to_email, from_email=None, **kwargs):
         '''
         Отправляет электронное письмо этому пользователю.
         '''
-        send_mail(subject, message, from_email, [self.email], **kwargs)
+        send_mail(subject, message, from_email, [to_email], **kwargs)

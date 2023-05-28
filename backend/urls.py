@@ -20,8 +20,11 @@ from graphene_django.views import GraphQLView
 from django.conf.urls.static import static
 from django.conf import settings
 
-
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("graphql", csrf_exempt(GraphQLView.as_view(graphiql=True))),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+admin.site.site_header = 'Административная панель Globus-IT'
+admin.site.site_title = 'Административная панель Globus-IT'
+admin.site.index_title = 'Globus-IT'
