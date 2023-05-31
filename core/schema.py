@@ -76,8 +76,6 @@ class Query(graphene.ObjectType):
     def resolve_viewer(self, info, **kwargs):
         return info.context.user
 
-    def resolve_order_payment(self, info, email, ids, **kwargs):
-        products_in_order = models.Product.objects.filter(id__in=ids)
         subject = 'Globus-IT: Ваша покупка совершена успешно!'
         message = 'Ваши ключи: \n'
         for product in products_in_order:
