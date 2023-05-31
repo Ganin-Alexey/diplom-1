@@ -97,11 +97,11 @@ DATABASES = {
 }
 
 # Email
-EMAIL_HOST_PASSWORD = '93Kqc3AUmPbRbp8j5wzk'
-DEFAULT_FROM_EMAIL = 'anonim.minona.80@mail.ru'
+EMAIL_HOST_PASSWORD = ''
+DEFAULT_FROM_EMAIL = ''
 EMAIL_HOST = 'smtp.mail.ru'
 EMAIL_POST = 587
-EMAIL_HOST_USER = 'anonim.minona.80@mail.ru'
+EMAIL_HOST_USER = ''
 EMAIL_USE_TLS = True
 
 # Password validation
