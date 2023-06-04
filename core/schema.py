@@ -76,6 +76,8 @@ class Query(graphene.ObjectType):
     def resolve_viewer(self, info, **kwargs):
         return info.context.user
 
+    def resolve_order_payment(self, info, email, ids, **kwargs):
+        products_in_order = models.Product.objects.filter(id__in=ids)
         subject = 'Globus-IT: Ваша покупка совершена успешно!'
         message = 'Ваши ключи: \n'
         for product in products_in_order:
@@ -83,7 +85,8 @@ class Query(graphene.ObjectType):
             message += f'{product.title} - {key.product_key}\n'
             key.is_deleted = True
             key.save()
-        models.User.email_user(subject=subject, to_email=email, message=message)
+        o = models.User.email_user(subject=subject, to_email=email, message=message)
+        print(o, subject, email, message)
         return 'Complete'
 
     def resolve_tags_with_count_of_products(self, info):
